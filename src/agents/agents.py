@@ -7,30 +7,57 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-
-llm = ChatGroq(
-    model="llama-3.1-8b-instant",
-    temperature=0
+# Search agent: moved to gpt-oss-20b — qwen's 7000 ITPM limit was too tight
+search_llm = ChatGroq(
+    model="openai/gpt-oss-20b",
+    temperature=0,
+    max_tokens=900
 )
 
-# 1st Agent : Search Agent
+# Reader agent: needs to read/summarize scraped content — give it more room
+reader_llm = ChatGroq(
+    model="openai/gpt-oss-20b",
+    temperature=0,
+    max_tokens=2000
+)
+
+# Writer chain: needs to write a FULL detailed report — needs the most tokens
+writer_llm = ChatGroq(
+    model="openai/gpt-oss-20b",
+    temperature=0.3,
+    max_tokens=3000
+)
+
+# Critic chain: short structured feedback — small output is fine, qwen works here
+critic_llm = ChatGroq(
+    model="qwen/qwen3.8-27b",
+    temperature=0,
+    max_tokens=700
+)
+
+# System guard to stop gpt-oss models from hallucinating built-in browser tools
+TOOL_GUARD = (
+    "You only have access to the tools explicitly given to you. "
+    "Never call any other tool, including any browser, search, or open tool "
+    "that is not in your provided tool list."
+)
+
+
 def build_search_agent():
     return create_agent(
-        model= llm,
+        model=search_llm,
         tools=[web_search],
-       
+        system_prompt=TOOL_GUARD,
     )
 
-# 2nd Agent : Reader Agent
 def build_reader_agent():
     return create_agent(
-        model= llm,
+        model=reader_llm,
         tools=[scrape_url],
-
+        system_prompt=TOOL_GUARD,
     )
 
-#writer chain 
-
+# writer chain
 writer_prompt = ChatPromptTemplate.from_messages([
     ("system", "You are an expert research writer. Write clear, structured and insightful reports."),
     ("human", """Write a detailed research report on the topic below.
@@ -49,12 +76,11 @@ Structure the report as:
 Be detailed, factual and professional."""),
 ])
 
-writer_chain = writer_prompt | llm | StrOutputParser()
+writer_chain = writer_prompt | writer_llm | StrOutputParser()
 
-#critic_chain 
-
+# critic_chain
 critic_prompt = ChatPromptTemplate.from_messages([
-     ("system", "You are a sharp and constructive research critic. Be honest and specific."),
+    ("system", "You are a sharp and constructive research critic. Be honest and specific."),
     ("human", """Review the research report below and evaluate it strictly.
 
 Report:
@@ -76,4 +102,4 @@ One line verdict:
 ..."""),
 ])
 
-critic_chain = critic_prompt | llm | StrOutputParser()
+critic_chain = critic_prompt | critic_llm | StrOutputParser()

@@ -12,7 +12,6 @@ import time
 from requests.exceptions import ConnectionError
 
 
-
 load_dotenv()
 tavily = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
 
@@ -20,25 +19,25 @@ tavily = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
 @tool
 def web_search(query: str) -> str:
     """Search the web for recent and reliable information on a topic. Returns Titles, URLs and snippets."""
-    
+
     results = None
     for attempt in range(3):
         try:
-            results = tavily.search(query=query, max_results=5)
+            results = tavily.search(query=query, max_results=3)  # reduced from 5
             break
         except ConnectionError:
             print(f"Tavily connection failed (attempt {attempt+1}/3), retrying...")
             time.sleep(3)
-    
+
     if results is None:
         return "Web search failed after multiple attempts due to a connection error."
 
     out = []
     for r in results['results']:
         out.append(
-            f"Title: {r['title']}\nURL: {r['url']}\nSnippet: {r['content'][:300]}\n"
+            f"Title: {r['title']}\nURL: {r['url']}\nSnippet: {r['content'][:150]}\n"  # reduced from 300
         )
-    
+
     return "\n----\n".join(out)
 
 
@@ -58,6 +57,8 @@ def scrape_url(url: str) -> str:
         "Accept-Language": "en-US,en;q=0.9",
         "Referer": "https://www.google.com/",
     }
+
+    MAX_CHARS = 2500  # reduced from 5000 to help stay under input token limits
 
     try:
         # ── Fetch page ─────────────────────────────────────
@@ -82,7 +83,7 @@ def scrape_url(url: str) -> str:
 
         if extracted and len(extracted.strip()) > 200:
             cleaned = re.sub(r'\s+', ' ', extracted)
-            return cleaned[:5000]
+            return cleaned[:MAX_CHARS]
 
         # ──────────────────────────────────────────────────
         # Strategy 2 → readability
@@ -107,7 +108,7 @@ def scrape_url(url: str) -> str:
 
         if text and len(text.strip()) > 200:
             cleaned = re.sub(r'\s+', ' ', text)
-            return cleaned[:5000]
+            return cleaned[:MAX_CHARS]
 
         # ──────────────────────────────────────────────────
         # Strategy 3 → fallback full page extraction
@@ -130,7 +131,7 @@ def scrape_url(url: str) -> str:
         cleaned = re.sub(r'\s+', ' ', text)
 
         if cleaned:
-            return cleaned[:5000]
+            return cleaned[:MAX_CHARS]
 
         return "Could not extract meaningful content from the page."
 
