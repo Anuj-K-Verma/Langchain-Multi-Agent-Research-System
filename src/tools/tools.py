@@ -8,18 +8,32 @@ from bs4 import BeautifulSoup
 from readability import Document
 import trafilatura
 import re
+import time
+from requests.exceptions import ConnectionError
 
 
 
 load_dotenv()
 tavily = TavilyClient(api_key=os.getenv("TAVILY_API_K EY"))
 
-@tool
-def web_search(query : str) -> str:
-    """Search the web for recent and reliable information on a topic . Returns Titles , URLs and snippets."""
-    results = tavily.search(query=query,max_results=5)
-    out = []
 
+@tool
+def web_search(query: str) -> str:
+    """Search the web for recent and reliable information on a topic. Returns Titles, URLs and snippets."""
+    
+    results = None
+    for attempt in range(3):
+        try:
+            results = tavily.search(query=query, max_results=5)
+            break
+        except ConnectionError:
+            print(f"Tavily connection failed (attempt {attempt+1}/3), retrying...")
+            time.sleep(3)
+    
+    if results is None:
+        return "Web search failed after multiple attempts due to a connection error."
+
+    out = []
     for r in results['results']:
         out.append(
             f"Title: {r['title']}\nURL: {r['url']}\nSnippet: {r['content'][:300]}\n"
