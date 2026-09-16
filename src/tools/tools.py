@@ -23,7 +23,7 @@ def web_search(query: str) -> str:
     results = None
     for attempt in range(3):
         try:
-            results = tavily.search(query=query, max_results=3)  # reduced from 5
+            results = tavily.search(query=query, max_results=3)  
             break
         except ConnectionError:
             print(f"Tavily connection failed (attempt {attempt+1}/3), retrying...")
