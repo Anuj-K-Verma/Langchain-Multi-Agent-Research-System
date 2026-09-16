@@ -14,7 +14,7 @@ from requests.exceptions import ConnectionError
 
 
 load_dotenv()
-tavily = TavilyClient(api_key=os.getenv("TAVILY_API_K EY"))
+tavily = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
 
 
 @tool
